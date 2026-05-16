@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eurovision Prediction Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            esc: {
+              purple: '#a855f7',
+              blue: '#3b82f6',
+              gold: '#fbbf24',
+              pink: '#ec4899',
+              dark: '#0b0420',
+              ink: '#1a0b3d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen text-white">
+  <div id="bg-aurora" aria-hidden="true"></div>
+
+  <header class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-8 pb-4">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight neon-title">
+          Eurovision Prediction Tracker
+        </h1>
+        <p class="text-sm text-white/60 mt-1">
+          Guess the ranking. Reveal from 25 to 1. Win bragging rights.
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-export" class="btn-ghost">Export JSON</button>
+        <label class="btn-ghost cursor-pointer">
+          Import JSON
+          <input id="file-import" type="file" accept="application/json" class="hidden" />
+        </label>
+        <button id="btn-reset" class="btn-danger">Reset</button>
+      </div>
+    </div>
+
+    <nav class="mt-6 flex flex-wrap gap-1 sm:gap-2 border-b border-white/10">
+      <button class="tab-btn" data-tab="predictions">1 · Input Predictions</button>
+      <button class="tab-btn" data-tab="overview">2 · Overview</button>
+      <button class="tab-btn" data-tab="finale">3 · Finale Reveal</button>
+    </nav>
+  </header>
+
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pb-16">
+    <!-- TAB 1: INPUT PREDICTIONS -->
+    <section id="tab-predictions" class="tab-panel">
+      <div class="grid lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 card">
+          <h2 class="card-title">Add or edit a player</h2>
+          <div class="mt-4 flex flex-col sm:flex-row gap-3">
+            <input id="player-name" type="text" placeholder="Player name" class="input flex-1" />
+            <button id="btn-new-player" class="btn-ghost">New player</button>
+          </div>
+
+          <div class="mt-6">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm uppercase tracking-widest text-esc-gold">Predictions (1 → 25)</h3>
+              <div class="text-xs text-white/50" id="progress-pred">0 / 25</div>
+            </div>
+            <div id="prediction-slots" class="mt-3 grid sm:grid-cols-2 gap-2"></div>
+          </div>
+
+          <div class="mt-6 flex flex-wrap gap-2">
+            <button id="btn-save-pred" class="btn-primary">Save prediction</button>
+            <button id="btn-clear-pred" class="btn-ghost">Clear slots</button>
+          </div>
+        </div>
+
+        <aside class="card">
+          <h2 class="card-title">Saved players</h2>
+          <ul id="players-list" class="mt-4 space-y-2"></ul>
+        </aside>
+      </div>
+
+      <details class="card mt-6">
+        <summary class="cursor-pointer card-title">Edit the country list (25)</summary>
+        <p class="text-xs text-white/50 mt-1">Customize the participating countries. Must stay 25 unique entries.</p>
+        <div id="country-editor" class="mt-3 grid sm:grid-cols-2 md:grid-cols-3 gap-2"></div>
+        <div class="mt-4 flex gap-2">
+          <button id="btn-save-countries" class="btn-primary">Save countries</button>
+        </div>
+      </details>
+    </section>
+
+    <!-- TAB 2: OVERVIEW -->
+    <section id="tab-overview" class="tab-panel hidden">
+      <div class="card overflow-x-auto">
+        <h2 class="card-title">Side-by-side predictions</h2>
+        <div id="overview-grid" class="mt-4"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: FINALE -->
+    <section id="tab-finale" class="tab-panel hidden">
+      <div class="grid lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 card">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h2 class="card-title">Reveal</h2>
+            <div id="reveal-progress" class="text-sm text-white/60">0 / 25 revealed</div>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button id="btn-reveal-next" class="btn-gold">Reveal next ▼</button>
+            <button id="btn-reveal-reset" class="btn-ghost">Reset reveals</button>
+          </div>
+
+          <div id="reveal-list" class="mt-6 space-y-2"></div>
+        </div>
+
+        <aside class="card">
+          <h2 class="card-title">Live leaderboard</h2>
+          <ol id="leaderboard" class="mt-4 space-y-2"></ol>
+        </aside>
+      </div>
+
+      <details class="card mt-6">
+        <summary class="cursor-pointer card-title">Admin · Actual final results</summary>
+        <p class="text-xs text-white/50 mt-1">Enter the official ranking before revealing.</p>
+        <div id="actual-slots" class="mt-4 grid sm:grid-cols-2 gap-2"></div>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button id="btn-save-actual" class="btn-primary">Save actual results</button>
+          <button id="btn-clear-actual" class="btn-danger">Clear actual</button>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
