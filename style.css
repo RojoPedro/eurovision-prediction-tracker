@@ -111,6 +111,7 @@ select.input option { background: var(--esc-ink); color: white; }
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
+  touch-action: none;
   font-size: 1.1rem; line-height: 1; letter-spacing: -3px;
   font-weight: 800;
   height: 2.1rem; border-radius: 0.4rem;
@@ -118,9 +119,21 @@ select.input option { background: var(--esc-ink); color: white; }
 }
 .slot .drag-handle:hover { color: var(--esc-gold); background: rgba(251,191,36,0.08); }
 .slot .drag-handle:active { cursor: grabbing; color: var(--esc-gold); }
-.slot.dragging { opacity: 0.4; transform: scale(0.98); }
-.slot.drop-target-top    { box-shadow: 0 -3px 0 0 var(--esc-gold), 0 0 18px -4px rgba(251,191,36,0.4); }
-.slot.drop-target-bottom { box-shadow:  0 3px 0 0 var(--esc-gold), 0 0 18px -4px rgba(251,191,36,0.4); }
+
+/* SortableJS classes */
+.sortable-ghost {
+  opacity: 0.35;
+  border-style: dashed !important;
+  border-color: rgba(251, 191, 36, 0.55) !important;
+  background: rgba(251, 191, 36, 0.10) !important;
+}
+.sortable-chosen .drag-handle { color: var(--esc-gold); }
+.sortable-drag, .sortable-fallback {
+  opacity: 0.95 !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(251, 191, 36, 0.35);
+  transform: rotate(0.5deg);
+  background: var(--esc-ink);
+}
 
 .slot--empty {
   border-color: rgba(251, 191, 36, 0.40);

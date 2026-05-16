@@ -228,60 +228,35 @@
       row.appendChild(handle);
       row.appendChild(sel);
       container.appendChild(row);
-
-      attachSlotDnD(row, r, draftObj, onChange, container);
     }
   }
 
-  function attachSlotDnD(slot, rank, draftObj, onChange, container) {
-    slot.addEventListener('dragstart', e => {
-      if (!slot.draggable) { e.preventDefault(); return; }
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', String(rank));
-      slot.classList.add('dragging');
+  function initSortable(container, getDraft, onChange) {
+    if (typeof Sortable === 'undefined') {
+      console.warn('SortableJS not loaded — drag-and-drop disabled');
+      return null;
+    }
+    return Sortable.create(container, {
+      handle: '.drag-handle',
+      animation: 180,
+      forceFallback: true,
+      fallbackTolerance: 4,
+      touchStartThreshold: 4,
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      dragClass: 'sortable-drag',
+      fallbackClass: 'sortable-fallback',
+      onEnd: (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        const draftObj = getDraft();
+        const arr = [];
+        for (let r = 1; r <= TOTAL; r++) arr.push(draftObj[r] || '');
+        const item = arr.splice(evt.oldIndex, 1)[0];
+        arr.splice(evt.newIndex, 0, item);
+        for (let r = 1; r <= TOTAL; r++) draftObj[r] = arr[r - 1] || '';
+        onChange();
+      },
     });
-    slot.addEventListener('dragend', () => {
-      slot.draggable = false;
-      slot.classList.remove('dragging');
-      container.querySelectorAll('.slot').forEach(s => {
-        s.classList.remove('drop-target-top', 'drop-target-bottom');
-      });
-    });
-    slot.addEventListener('dragover', e => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      const rect = slot.getBoundingClientRect();
-      const before = (e.clientY - rect.top) < rect.height / 2;
-      slot.classList.toggle('drop-target-top', before);
-      slot.classList.toggle('drop-target-bottom', !before);
-    });
-    slot.addEventListener('dragleave', e => {
-      if (!slot.contains(e.relatedTarget)) {
-        slot.classList.remove('drop-target-top', 'drop-target-bottom');
-      }
-    });
-    slot.addEventListener('drop', e => {
-      e.preventDefault();
-      const fromRank = Number(e.dataTransfer.getData('text/plain'));
-      const rect = slot.getBoundingClientRect();
-      const before = (e.clientY - rect.top) < rect.height / 2;
-      slot.classList.remove('drop-target-top', 'drop-target-bottom');
-      if (!fromRank || fromRank === rank) return;
-      const toRank = rank + (before ? 0 : 1);
-      reorderDraft(draftObj, fromRank, toRank);
-      onChange();
-    });
-  }
-
-  function reorderDraft(draftObj, fromRank, toRank) {
-    const arr = [];
-    for (let r = 1; r <= TOTAL; r++) arr.push(draftObj[r] || '');
-    const item = arr.splice(fromRank - 1, 1)[0];
-    let insertIdx = toRank - 1;
-    if (fromRank < toRank) insertIdx--;
-    insertIdx = Math.max(0, Math.min(arr.length, insertIdx));
-    arr.splice(insertIdx, 0, item);
-    for (let r = 1; r <= TOTAL; r++) draftObj[r] = arr[r - 1] || '';
   }
 
   /* ---------- Tab 1: predictions ---------- */
@@ -725,19 +700,8 @@
     if (activeTab === 'finale') { renderReveal(); renderLeaderboard(); }
   });
 
-  /* ---------- drag-handle arming (delegation) ---------- */
-  document.addEventListener('mousedown', e => {
-    const handle = e.target.closest('.drag-handle');
-    if (!handle) return;
-    const slot = handle.closest('.slot');
-    if (slot) slot.draggable = true;
-  });
-  document.addEventListener('mouseup', () => {
-    document.querySelectorAll('.slot[draggable="true"]').forEach(s => {
-      if (!s.classList.contains('dragging')) s.draggable = false;
-    });
-  });
-
   /* ---------- boot ---------- */
+  initSortable(predSlotsEl, () => draft, () => renderPredictionSlots());
+  initSortable(actualSlotsEl, () => actualDraft, () => renderActualSlots());
   activateTab('predictions');
 })();
