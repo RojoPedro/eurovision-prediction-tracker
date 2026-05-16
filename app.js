@@ -51,6 +51,95 @@
     window.open(youtubeSearchUrl(country), '_blank', 'noopener,noreferrer');
   }
 
+  // ---------- audio previews (iTunes Search API) ----------
+  const COUNTRY_EN = {
+    'Danimarca': 'Denmark', 'Germania': 'Germany', 'Israele': 'Israel',
+    'Belgio': 'Belgium', 'Albania': 'Albania', 'Grecia': 'Greece',
+    'Ucraina': 'Ukraine', 'Australia': 'Australia', 'Serbia': 'Serbia',
+    'Malta': 'Malta', 'Cechia': 'Czechia', 'Bulgaria': 'Bulgaria',
+    'Croazia': 'Croatia', 'Regno Unito': 'United Kingdom', 'Francia': 'France',
+    'Moldova': 'Moldova', 'Finlandia': 'Finland', 'Polonia': 'Poland',
+    'Lituania': 'Lithuania', 'Svezia': 'Sweden', 'Cipro': 'Cyprus',
+    'Italia': 'Italy', 'Norvegia': 'Norway', 'Romania': 'Romania',
+    'Austria': 'Austria',
+  };
+  const previewCache = new Map();   // country → { url, title } | null (null = looked up, no preview found)
+  let currentAudio = null;
+  let audioEnabled = true;
+  const audioStatusEl = document.getElementById('audio-status');
+  const btnAudioToggle = document.getElementById('btn-audio-toggle');
+
+  async function fetchPreview(country) {
+    if (previewCache.has(country)) return previewCache.get(country);
+    const en = COUNTRY_EN[country] || country;
+    const term = encodeURIComponent(`Eurovision 2026 ${en}`);
+    try {
+      const r = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=10`);
+      const data = await r.json();
+      const results = (data.results || []).filter(x => x && x.previewUrl);
+      // Prefer 2026 entries that aren't karaoke versions
+      const isReal2026 = (x) => {
+        const blob = `${x.collectionName || ''} ${x.trackName || ''}`;
+        return blob.includes('2026') && !/karaoke/i.test(blob);
+      };
+      const pick = results.find(isReal2026) || results[0];
+      if (!pick) { previewCache.set(country, null); return null; }
+      // Strip suffixes like " (Eurovision 2026 - Italy)" from display title
+      const cleanTrack = (pick.trackName || '').replace(/\s*\([^)]*Eurovision[^)]*\)\s*$/i, '').trim();
+      const entry = { url: pick.previewUrl, title: `${pick.artistName} — ${cleanTrack}` };
+      previewCache.set(country, entry);
+      return entry;
+    } catch {
+      previewCache.set(country, null);
+      return null;
+    }
+  }
+
+  function prefetchAllPreviews() {
+    if (!state.countries) return;
+    state.countries.forEach(c => { if (!previewCache.has(c)) fetchPreview(c); });
+  }
+
+  function stopPreview() {
+    if (currentAudio) {
+      try { currentAudio.pause(); } catch {}
+      currentAudio = null;
+    }
+    audioStatusEl.classList.add('hidden');
+    audioStatusEl.innerHTML = '';
+  }
+
+  async function playPreview(country) {
+    stopPreview();
+    if (!audioEnabled || !country) return;
+    const entry = await fetchPreview(country);
+    if (!entry) {
+      audioStatusEl.innerHTML = `<span>♪ no preview for ${escapeHtml(country)}</span>`;
+      audioStatusEl.classList.remove('hidden');
+      setTimeout(() => audioStatusEl.classList.add('hidden'), 2500);
+      return;
+    }
+    const audio = new Audio(entry.url);
+    audio.volume = 0.85;
+    currentAudio = audio;
+    audio.addEventListener('ended', () => { if (currentAudio === audio) stopPreview(); });
+    audio.addEventListener('error', () => { if (currentAudio === audio) stopPreview(); });
+    audioStatusEl.innerHTML = `♪ <span class="title">${escapeHtml(entry.title)}</span> <button class="stop" title="Stop">✕</button>`;
+    audioStatusEl.classList.remove('hidden');
+    audioStatusEl.querySelector('.stop').addEventListener('click', stopPreview);
+    try { await audio.play(); } catch (e) { stopPreview(); }
+  }
+
+  function updateAudioToggleUI() {
+    btnAudioToggle.textContent = audioEnabled ? '🔊 Audio: on' : '🔇 Audio: off';
+  }
+  btnAudioToggle.addEventListener('click', () => {
+    audioEnabled = !audioEnabled;
+    if (!audioEnabled) stopPreview();
+    updateAudioToggleUI();
+  });
+  updateAudioToggleUI();
+
   /* ---------- toast & sync indicator ---------- */
   const toastEl = document.getElementById('toast');
   let toastTimer = null;
@@ -163,6 +252,7 @@
       renderReveal();
       renderLeaderboard();
       startPolling();
+      prefetchAllPreviews();
     }
   }
   tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
@@ -511,6 +601,7 @@
       actualDraft = blankSlots();
       revealedCount = 0;
       lastRevealedRank = null;
+      stopPreview();
       renderActualSlots();
       renderReveal();
       renderLeaderboard();
@@ -697,6 +788,7 @@
     renderLeaderboard();
     const c = state.actualResults[lastRevealedRank];
     toast(`#${lastRevealedRank}: ${c || '(empty)'}`);
+    if (c) playPreview(c);
   }
 
   function resetReveals() {
@@ -704,6 +796,7 @@
     if (!confirm('Reset reveal progress back to 0 (only on this device)?')) return;
     revealedCount = 0;
     lastRevealedRank = null;
+    stopPreview();
     renderReveal();
     renderLeaderboard();
   }

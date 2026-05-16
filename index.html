@@ -127,9 +127,11 @@
             <h2 class="card-title">Reveal</h2>
             <div id="reveal-progress" class="text-sm text-white/60">0 / 25 revealed</div>
           </div>
-          <div class="mt-4 flex flex-wrap gap-2">
+          <div class="mt-4 flex flex-wrap gap-2 items-center">
             <button id="btn-reveal-next" class="btn-gold">Reveal next ▼</button>
             <button id="btn-reveal-reset" class="btn-ghost">Reset reveals</button>
+            <button id="btn-audio-toggle" class="btn-ghost" title="Autoplay 30s preview on reveal">🔊 Audio: on</button>
+            <span id="audio-status" class="audio-status hidden"></span>
           </div>
 
           <div id="reveal-list" class="mt-6 space-y-2"></div>

@@ -125,6 +125,25 @@ select.input option { background: var(--esc-ink); color: white; }
   transition: color .15s ease, transform .1s ease;
 }
 .country-link:hover .play-icon { color: #ef4444; transform: scale(1.15); }
+
+.audio-status {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.35rem 0.65rem; border-radius: 999px;
+  background: rgba(168, 85, 247, 0.18);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #ddd6fe; font-size: 0.8rem; font-weight: 600;
+  animation: pulse-purple 2s ease infinite;
+}
+.audio-status .title { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audio-status .stop {
+  background: transparent; border: none; color: #fca5a5;
+  font-size: 0.9rem; padding: 0 0.2rem; cursor: pointer;
+}
+.audio-status .stop:hover { color: #fff; }
+@keyframes pulse-purple {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(168, 85, 247, 0); }
+}
 .slot .rank-pill {
   display: inline-flex; align-items: center; justify-content: center;
   font-weight: 800; font-size: 0.85rem;
