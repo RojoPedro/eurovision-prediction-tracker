@@ -3,11 +3,11 @@
   const API_URL = '/api/state';
 
   const DEFAULT_COUNTRIES = [
-    "Albania", "Armenia", "Australia", "Austria", "Belgium",
-    "Croatia", "Cyprus", "Denmark", "Estonia", "Finland",
-    "France", "Georgia", "Germany", "Greece", "Iceland",
-    "Ireland", "Israel", "Italy", "Latvia", "Lithuania",
-    "Luxembourg", "Malta", "Moldova", "Netherlands", "Norway"
+    "Danimarca", "Germania", "Israele", "Belgio", "Albania",
+    "Grecia", "Ucraina", "Australia", "Serbia", "Malta",
+    "Cechia", "Bulgaria", "Croazia", "Regno Unito", "Francia",
+    "Moldova", "Finlandia", "Polonia", "Lituania", "Svezia",
+    "Cipro", "Italia", "Norvegia", "Romania", "Austria"
   ];
 
   /* ---------- state ---------- */
@@ -496,7 +496,7 @@
       if (!confirm('Overwrite existing actual results with demo data?')) return;
     }
     const shuffled = [...state.countries];
-    const italyIdx = shuffled.indexOf('Italy');
+    const italyIdx = shuffled.findIndex(c => c === 'Italia' || c === 'Italy');
     if (italyIdx > 0) [shuffled[0], shuffled[italyIdx]] = [shuffled[italyIdx], shuffled[0]];
     for (let i = shuffled.length - 1; i > 1; i--) {
       const j = 1 + Math.floor(Math.random() * i);

@@ -5,11 +5,11 @@ const DATA_PATH = process.env.GITHUB_DATA_PATH || 'data.json';
 
 const TOTAL = 25;
 const DEFAULT_COUNTRIES = [
-  "Albania", "Armenia", "Australia", "Austria", "Belgium",
-  "Croatia", "Cyprus", "Denmark", "Estonia", "Finland",
-  "France", "Georgia", "Germany", "Greece", "Iceland",
-  "Ireland", "Israel", "Italy", "Latvia", "Lithuania",
-  "Luxembourg", "Malta", "Moldova", "Netherlands", "Norway"
+  "Danimarca", "Germania", "Israele", "Belgio", "Albania",
+  "Grecia", "Ucraina", "Australia", "Serbia", "Malta",
+  "Cechia", "Bulgaria", "Croazia", "Regno Unito", "Francia",
+  "Moldova", "Finlandia", "Polonia", "Lituania", "Svezia",
+  "Cipro", "Italia", "Norvegia", "Romania", "Austria"
 ];
 
 function defaultState() {
