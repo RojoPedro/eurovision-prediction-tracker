@@ -1,4 +1,4 @@
-const { getStore } = require('@netlify/blobs');
+const { connectLambda, getStore } = require('@netlify/blobs');
 
 const TOTAL = 25;
 const STORE_NAME = 'eurovision';
@@ -156,6 +156,10 @@ function jsonResponse(statusCode, body) {
 
 exports.handler = async (event) => {
   try {
+    // Required for Netlify Blobs to pick up siteID/token from the Lambda runtime
+    // when using the v1 (exports.handler) Functions API.
+    connectLambda(event);
+
     if (event.httpMethod === 'GET') {
       const { state } = await readWithEtag();
       return jsonResponse(200, state);
