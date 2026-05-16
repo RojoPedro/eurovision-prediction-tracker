@@ -1,0 +1,9 @@
+{
+  "name": "eurovision-prediction-tracker",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Eurovision ranking-prediction tracker — Netlify static site + Blobs-backed shared state",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}

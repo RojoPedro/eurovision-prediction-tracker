@@ -2,59 +2,49 @@
 
 Single-page app to track friends' Eurovision ranking predictions and run a live, bottom-up point reveal at the finale.
 
-**Shared state on GitHub**: every save is committed to `data.json` in this repo via a tiny Vercel serverless function — so everyone with the URL sees the same predictions, live.
+**Shared state** lives in **Netlify Blobs** (KV-style store) behind a Netlify Function — so every save is a single KV write, never a Git commit, never a redeploy.
 
 ## Stack
 
-- Vanilla HTML / CSS / JavaScript (Tailwind via CDN)
-- One Vercel serverless function (`api/state.js`) that reads/writes `data.json` through the GitHub API
-- No database, no `localStorage` — GitHub is the source of truth
+- Vanilla HTML / CSS / JavaScript (Tailwind via CDN, SortableJS via CDN for drag-and-drop)
+- One Netlify Function (`netlify/functions/state.js`) that proxies `/api/state` to a Netlify Blobs store
+- Optimistic-concurrency writes via ETag (`onlyIfMatch`) — safe for multiple admins editing at the same time
 
 ## Scoring
 
-Points are awarded **per revealed position**, based on how close each player's guess was to the actual position of that country.
+Points are awarded **per revealed position**, based on how close each player's guess was.
 
-- **Max points per reveal** scale linearly with the *actual* rank: from **15 pts** at position #1 (most important) down to **5 pts** at position #25.
-- **Quadratic falloff with distance**: `points = max × (1 − distance/5)²`, clipped to 0 beyond 5 positions off.
-  - distance 0 → 100% of max (exact match)
-  - distance 1 → 64%
-  - distance 2 → 36%
-  - distance 3 → 16%
-  - distance 4 → 4%
-  - distance 5+ → 0
-- If a player never put that country in any of their 25 slots, they get 0.
+- **Max per reveal** scales linearly with the *actual* rank: 15 pts at #1 → 5 pts at #25.
+- **Quadratic falloff with distance**: `points = max × (1 − distance/5)²`, 0 beyond 5 off.
+  - d=0 → 100% · d=1 → 64% · d=2 → 36% · d=3 → 16% · d=4 → 4% · d≥5 → 0%
+- Country not picked at all by the player → 0 pts.
 
-**Example**: Italia turns out to be #3 (max 15 pts). A player who guessed it at #3 gets 15. At #5 (2 off) → 5 pts. At #8 (5 off) → 0 pts. Didn't pick → 0 pts.
+Example: Italia rivelata al #3 (max 15). Guess #3 → 15. Guess #5 → 5. Guess #8 → 0.
 
 ## Tabs
 
-1. **Input Predictions** — add players, fill 25 ranked dropdowns (no duplicates), with a 🎲 **Randomize remaining** button to auto-fill empty slots.
-2. **Overview** — side-by-side table of every player's bets.
-3. **Finale Reveal** — admin panel for the official ranking, then click **Reveal next** to walk from #25 up to #1. Includes a 🎬 **Load demo results** button that seeds fake Sanremo-style data (Italy at #1, rest shuffled) so you can test the reveal end-to-end. Auto-polls every 4 s so viewers see updates live.
+1. **Input Predictions** — add/edit players, 25 ranked dropdowns (no duplicates), drag-handle `⋮⋮` per row for touch + mouse reorder, 🎲 Randomize remaining, empty-slot highlight.
+2. **Overview** — hidden by default behind a Show/Hide toggle to avoid spoilers; reveals a side-by-side table.
+3. **Finale Reveal** — admin actual-results panel + bottom-up "Reveal #N ▼" button. Revealed rows stack top-down, most recent on top. Each row lists every player's guess and points earned. Auto-polls every 4 s.
 
-## Deploy
+## Deploy (Netlify)
 
-Static site + serverless API on Vercel. **One env var required**:
+1. Push to GitHub.
+2. On Netlify dashboard: **Add new site → Import an existing project → GitHub → eurovision-prediction-tracker**.
+3. Netlify auto-detects `netlify.toml` — just click Deploy. No env vars required.
 
-| name | value |
-|---|---|
-| `GITHUB_TOKEN` | a fine-grained PAT with `Contents: Read and write` on this repo |
+Netlify Blobs is zero-config in functions — auth is auto-injected at runtime.
 
-Optional overrides: `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_BRANCH`, `GITHUB_DATA_PATH`.
-
-```bash
-vercel env add GITHUB_TOKEN production
-vercel --prod
-```
-
-## Run locally
+## Local dev
 
 ```bash
-vercel dev
+npm install
+npx netlify dev
+# → http://localhost:8888
 ```
 
-`vercel dev` will load the same env vars and run `api/state.js` on `http://localhost:3000/api/state`. Opening `index.html` directly via `file://` won't work because the API calls need a server.
+`netlify dev` boots the static site, the function at `/api/state`, and a local Blobs sandbox automatically.
 
 ## Backup
 
-Use **Export JSON** in the header to download the current shared state. **Import JSON** uploads a backup back to GitHub (replaces everything — confirm prompt).
+**Export JSON** in the header downloads the current shared state. **Import JSON** uploads a backup back to the Blob (replaces everything — confirm prompt).
