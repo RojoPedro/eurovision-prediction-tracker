@@ -59,6 +59,32 @@
       }
     }
   ],
-  "actualResults": null,
+  "actualResults": {
+    "1": "Italy",
+    "2": "Israel",
+    "3": "Norway",
+    "4": "Lithuania",
+    "5": "Latvia",
+    "6": "Belgium",
+    "7": "Luxembourg",
+    "8": "Armenia",
+    "9": "Iceland",
+    "10": "Estonia",
+    "11": "Malta",
+    "12": "Greece",
+    "13": "Denmark",
+    "14": "Germany",
+    "15": "Austria",
+    "16": "Albania",
+    "17": "Moldova",
+    "18": "Netherlands",
+    "19": "Finland",
+    "20": "Ireland",
+    "21": "Cyprus",
+    "22": "France",
+    "23": "Australia",
+    "24": "Georgia",
+    "25": "Croatia"
+  },
   "revealedCount": 0
 }
