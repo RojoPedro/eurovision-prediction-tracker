@@ -189,7 +189,11 @@ select.input option { background: var(--esc-ink); color: white; }
   background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
   transition: background .25s ease, border-color .25s ease;
 }
-.reveal-row.locked { opacity: 0.5; }
+.reveal-empty {
+  padding: 1.5rem 1rem; border-radius: 0.6rem;
+  background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.65); text-align: center; font-size: 0.9rem;
+}
 .reveal-row.revealed {
   background: linear-gradient(135deg, rgba(168,85,247,0.18), rgba(59,130,246,0.10));
   border-color: rgba(168,85,247,0.35);

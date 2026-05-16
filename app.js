@@ -557,33 +557,39 @@
     btn.disabled = !haveActual || state.revealedCount >= TOTAL;
     if (!haveActual) btn.textContent = 'Set actual results first';
     else if (state.revealedCount >= TOTAL) btn.textContent = 'All revealed';
-    else btn.textContent = `Reveal #${currentRevealRank()} ▼`;
+    else btn.textContent = `Reveal #${TOTAL - state.revealedCount} ▼`;
+
+    if (state.revealedCount === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'reveal-empty';
+      hint.innerHTML = haveActual
+        ? `Nothing revealed yet. Click <strong>Reveal #${TOTAL} ▼</strong> to start from the bottom.`
+        : `Set the actual results in the admin section, then click Reveal.`;
+      revealListEl.appendChild(hint);
+      return;
+    }
 
     for (let r = 1; r <= TOTAL; r++) {
+      if (!isRevealed(r)) continue;
       const row = document.createElement('div');
-      const revealed = isRevealed(r);
-      const justRevealed = revealed && r === lastRevealedRank;
-      row.className = 'reveal-row ' + (revealed ? 'revealed' : 'locked') + (justRevealed ? ' just-revealed' : '');
+      const justRevealed = r === lastRevealedRank;
+      row.className = 'reveal-row revealed' + (justRevealed ? ' just-revealed' : '');
 
       const rankDiv = document.createElement('div');
       rankDiv.className = 'rank-big';
       rankDiv.textContent = `#${r}`;
 
       const right = document.createElement('div');
-      const country = revealed && state.actualResults ? state.actualResults[r] : null;
+      const country = state.actualResults ? state.actualResults[r] : null;
       const maxPts = maxPointsFor(r);
       right.innerHTML = `
         <div class="flex items-center justify-between gap-2">
-          <div class="country-name">${
-            revealed
-              ? (country ? escapeHtml(country) : '<span class="text-white/40">— empty —</span>')
-              : '<span class="text-white/40">Hidden</span>'
-          }</div>
+          <div class="country-name">${country ? escapeHtml(country) : '<span class="text-white/40">— empty —</span>'}</div>
           <div class="text-xs text-white/60">max ${maxPts} pts</div>
         </div>
       `;
 
-      if (revealed && country && state.players.length) {
+      if (country && state.players.length) {
         const breakdown = document.createElement('div');
         breakdown.className = 'player-breakdown';
 
