@@ -12,13 +12,19 @@ Single-page app to track friends' Eurovision ranking predictions and run a live,
 
 ## Scoring
 
-You only get points for **exact-position** matches.
+Points are awarded **per revealed position**, based on how close each player's guess was to the actual position of that country.
 
-```
-points = (TotalParticipants + 1) − position
-```
+- **Max points per reveal** scale linearly with the *actual* rank: from **15 pts** at position #1 (most important) down to **5 pts** at position #25.
+- **Quadratic falloff with distance**: `points = max × (1 − distance/5)²`, clipped to 0 beyond 5 positions off.
+  - distance 0 → 100% of max (exact match)
+  - distance 1 → 64%
+  - distance 2 → 36%
+  - distance 3 → 16%
+  - distance 4 → 4%
+  - distance 5+ → 0
+- If a player never put that country in any of their 25 slots, they get 0.
 
-With 25 participants: 1st = 25 pts, 14th = 12 pts, 25th = 1 pt.
+**Example**: Italia turns out to be #3 (max 15 pts). A player who guessed it at #3 gets 15. At #5 (2 off) → 5 pts. At #8 (5 off) → 0 pts. Didn't pick → 0 pts.
 
 ## Tabs
 

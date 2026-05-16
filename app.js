@@ -515,7 +515,36 @@
     }
   }
 
-  function pointsFor(rank) { return TOTAL + 1 - rank; }
+  const MAX_POINTS_TOP = 15;     // exact guess of actual #1
+  const MAX_POINTS_BOTTOM = 5;   // exact guess of actual #25
+  const DISTANCE_LIMIT = 5;      // beyond this distance, 0 points
+
+  function maxPointsFor(rank) {
+    const t = (rank - 1) / (TOTAL - 1);
+    return Math.round(MAX_POINTS_TOP - t * (MAX_POINTS_TOP - MAX_POINTS_BOTTOM));
+  }
+  function pointsFor(rank, distance) {
+    if (distance == null || distance > DISTANCE_LIMIT) return 0;
+    const factor = Math.pow(1 - distance / DISTANCE_LIMIT, 2);
+    return Math.round(maxPointsFor(rank) * factor);
+  }
+  function playerGuessRank(player, country) {
+    if (!country) return null;
+    for (let pr = 1; pr <= TOTAL; pr++) {
+      if (player.predictions[pr] === country) return pr;
+    }
+    return null;
+  }
+  function playerPointsAtRank(player, r) {
+    if (!state.actualResults) return { guess: null, distance: null, points: 0 };
+    const actual = state.actualResults[r];
+    if (!actual) return { guess: null, distance: null, points: 0 };
+    const guess = playerGuessRank(player, actual);
+    if (guess == null) return { guess: null, distance: null, points: 0 };
+    const distance = Math.abs(guess - r);
+    return { guess, distance, points: pointsFor(r, distance) };
+  }
+
   function isRevealed(rank) { return rank >= TOTAL - state.revealedCount + 1; }
   function currentRevealRank() { return TOTAL - state.revealedCount + 1; }
 
@@ -542,6 +571,7 @@
 
       const right = document.createElement('div');
       const country = revealed && state.actualResults ? state.actualResults[r] : null;
+      const maxPts = maxPointsFor(r);
       right.innerHTML = `
         <div class="flex items-center justify-between gap-2">
           <div class="country-name">${
@@ -549,23 +579,38 @@
               ? (country ? escapeHtml(country) : '<span class="text-white/40">— empty —</span>')
               : '<span class="text-white/40">Hidden</span>'
           }</div>
-          <div class="text-xs text-white/60">${pointsFor(r)} pts</div>
+          <div class="text-xs text-white/60">max ${maxPts} pts</div>
         </div>
       `;
 
-      if (revealed && country) {
-        const matches = state.players.filter(p => p.predictions[r] === country);
-        if (matches.length) {
-          const wrap = document.createElement('div');
-          wrap.className = 'matches';
-          matches.forEach(p => {
-            const pill = document.createElement('span');
-            pill.className = 'match-pill';
-            pill.textContent = `${p.name} +${pointsFor(r)}`;
-            wrap.appendChild(pill);
-          });
-          right.appendChild(wrap);
-        }
+      if (revealed && country && state.players.length) {
+        const breakdown = document.createElement('div');
+        breakdown.className = 'player-breakdown';
+
+        const rows = state.players.map(p => {
+          const { guess, distance, points } = playerPointsAtRank(p, r);
+          return { name: p.name, guess, distance, points };
+        });
+        rows.sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+
+        rows.forEach(({ name, guess, distance, points }) => {
+          const cls = points === maxPts && points > 0 ? 'exact'
+                    : points > 0 ? 'partial' : 'zero';
+          const guessText = guess == null
+            ? '<span class="player-guess muted">no pick</span>'
+            : `<span class="player-guess">#${guess}${distance > 0 ? ` <span class="dist">(${distance > DISTANCE_LIMIT ? '5+' : distance} off)</span>` : ''}</span>`;
+          const pointsLabel = points > 0 ? `+${points}` : '0';
+          const playerRow = document.createElement('div');
+          playerRow.className = `player-row ${cls}`;
+          playerRow.innerHTML = `
+            <span class="player-name">${escapeHtml(name)}</span>
+            ${guessText}
+            <span class="player-points">${pointsLabel}</span>
+          `;
+          breakdown.appendChild(playerRow);
+        });
+
+        right.appendChild(breakdown);
       }
 
       row.appendChild(rankDiv);
@@ -583,11 +628,9 @@
       let lastDelta = 0;
       for (let r = 1; r <= TOTAL; r++) {
         if (!isRevealed(r) || !state.actualResults) continue;
-        if (p.predictions[r] && p.predictions[r] === state.actualResults[r]) {
-          const pts = pointsFor(r);
-          score += pts;
-          if (r === lastRank) lastDelta = pts;
-        }
+        const { points } = playerPointsAtRank(p, r);
+        score += points;
+        if (r === lastRank) lastDelta = points;
       }
       return { p, score, lastDelta };
     });
