@@ -1,6 +1,6 @@
 (() => {
-  const STORAGE_KEY = 'eurovision-tracker-v1';
   const TOTAL = 25;
+  const API_URL = '/api/state';
 
   const DEFAULT_COUNTRIES = [
     "Albania", "Armenia", "Australia", "Austria", "Belgium",
@@ -11,64 +11,24 @@
   ];
 
   /* ---------- state ---------- */
-  let state = load();
+  let state = defaultState();
   let draft = blankSlots();
   let editingPlayerId = null;
-  let actualDraft = state.actualResults ? { ...state.actualResults } : blankSlots();
+  let actualDraft = blankSlots();
   let lastRevealedRank = null;
+  let activeTab = 'predictions';
+  let pollTimer = null;
+  let inFlight = 0;
+  let hasSynced = false;
+
+  function defaultState() {
+    return { countries: [...DEFAULT_COUNTRIES], players: [], actualResults: null, revealedCount: 0 };
+  }
 
   function blankSlots() {
     const d = {};
     for (let i = 1; i <= TOTAL; i++) d[i] = '';
     return d;
-  }
-
-  function defaultState() {
-    return {
-      countries: [...DEFAULT_COUNTRIES],
-      players: [],
-      actualResults: null,
-      revealedCount: 0,
-    };
-  }
-
-  function normalize(s) {
-    return {
-      countries: Array.isArray(s.countries) && s.countries.length === TOTAL
-        ? s.countries.map(String)
-        : [...DEFAULT_COUNTRIES],
-      players: Array.isArray(s.players)
-        ? s.players.map(p => ({
-            id: p.id || uid(),
-            name: String(p.name || 'Player'),
-            predictions: sanitizeSlots(p.predictions),
-          }))
-        : [],
-      actualResults: s.actualResults ? sanitizeSlots(s.actualResults) : null,
-      revealedCount: Number.isInteger(s.revealedCount)
-        ? Math.max(0, Math.min(TOTAL, s.revealedCount))
-        : 0,
-    };
-  }
-
-  function sanitizeSlots(p) {
-    const out = {};
-    for (let i = 1; i <= TOTAL; i++) out[i] = p && p[i] ? String(p[i]) : '';
-    return out;
-  }
-
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return defaultState();
-      return normalize(JSON.parse(raw));
-    } catch {
-      return defaultState();
-    }
-  }
-
-  function save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
 
   function uid() {
@@ -81,7 +41,7 @@
     ));
   }
 
-  /* ---------- toast ---------- */
+  /* ---------- toast & sync indicator ---------- */
   const toastEl = document.getElementById('toast');
   let toastTimer = null;
   function toast(msg) {
@@ -92,16 +52,93 @@
     toastTimer = setTimeout(() => {
       toastEl.classList.remove('show');
       toastEl.classList.add('hidden');
-    }, 2200);
+    }, 2400);
+  }
+
+  const syncPill = document.getElementById('sync-pill');
+  const syncLabel = document.getElementById('sync-label');
+  const syncBanner = document.getElementById('sync-banner');
+  function setSync(stateName, label) {
+    syncPill.dataset.state = stateName;
+    syncLabel.textContent = label;
+  }
+  function showBanner(msg) {
+    syncBanner.innerHTML = msg;
+    syncBanner.classList.remove('hidden');
+  }
+  function hideBanner() {
+    syncBanner.classList.add('hidden');
+  }
+
+  /* ---------- API ---------- */
+  async function apiGet() {
+    inFlight++;
+    setSync('busy', 'Loading…');
+    try {
+      const res = await fetch(API_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data._warning) {
+        showBanner(`⚠️ ${escapeHtml(data._warning)} Set the <code>GITHUB_TOKEN</code> env var on Vercel.`);
+        setSync('error', 'No token');
+      } else {
+        hideBanner();
+        setSync('ok', 'Synced');
+      }
+      delete data._warning;
+      state = data;
+      hasSynced = true;
+      return state;
+    } catch (e) {
+      setSync('error', 'Offline');
+      showBanner(`⚠️ Couldn't reach the API: ${escapeHtml(e.message)}. The API only works when deployed to Vercel (or via <code>vercel dev</code>).`);
+      throw e;
+    } finally {
+      inFlight--;
+      if (inFlight === 0 && hasSynced) setSync(syncPill.dataset.state || 'ok', syncLabel.textContent === 'Saving…' ? 'Synced' : syncLabel.textContent);
+    }
+  }
+
+  async function apiPost(action, payload) {
+    inFlight++;
+    setSync('busy', 'Saving…');
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data.error || `HTTP ${res.status}`;
+        setSync('error', 'Error');
+        toast(`Save failed: ${msg}`);
+        return null;
+      }
+      state = data;
+      hasSynced = true;
+      setSync('ok', 'Synced');
+      hideBanner();
+      return state;
+    } catch (e) {
+      setSync('error', 'Offline');
+      toast(`Network error: ${e.message}`);
+      return null;
+    } finally {
+      inFlight--;
+    }
   }
 
   /* ---------- tabs ---------- */
   const tabs = document.querySelectorAll('.tab-btn');
   const panels = document.querySelectorAll('.tab-panel');
 
-  function activateTab(name) {
+  async function activateTab(name) {
+    activeTab = name;
     tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
     panels.forEach(p => p.classList.toggle('hidden', p.id !== `tab-${name}`));
+    stopPolling();
+    try { await apiGet(); } catch {}
     if (name === 'predictions') {
       renderPredictionSlots();
       renderPlayersList();
@@ -109,12 +146,34 @@
     } else if (name === 'overview') {
       renderOverview();
     } else if (name === 'finale') {
+      if (!Object.values(actualDraft).some(Boolean) && state.actualResults) {
+        actualDraft = { ...state.actualResults };
+      }
       renderActualSlots();
       renderReveal();
       renderLeaderboard();
+      startPolling();
     }
   }
   tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
+
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const prev = JSON.stringify(state);
+        await apiGet();
+        if (JSON.stringify(state) !== prev) {
+          renderReveal();
+          renderLeaderboard();
+        }
+      } catch {}
+    }, 4000);
+  }
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
 
   /* ---------- slot rendering shared ---------- */
   function buildSelect(rank, draftObj, onChange) {
@@ -170,9 +229,7 @@
   const countryEditorEl = document.getElementById('country-editor');
 
   function renderPredictionSlots() {
-    renderSlotsInto(predSlotsEl, draft, () => {
-      renderPredictionSlots();
-    });
+    renderSlotsInto(predSlotsEl, draft, () => renderPredictionSlots());
     updatePredProgress();
   }
 
@@ -219,14 +276,16 @@
     toast(`Editing ${p.name}`);
   }
 
-  function deletePlayer(id) {
+  async function deletePlayer(id) {
     const p = state.players.find(x => x.id === id);
     if (!p) return;
-    if (!confirm(`Delete player "${p.name}"?`)) return;
-    state.players = state.players.filter(x => x.id !== id);
-    if (editingPlayerId === id) startNewPlayer(false);
-    save();
-    renderPlayersList();
+    if (!confirm(`Delete player "${p.name}" from GitHub for everyone?`)) return;
+    const next = await apiPost('delete-player', { id });
+    if (next) {
+      if (editingPlayerId === id) startNewPlayer(false);
+      renderPlayersList();
+      toast(`Deleted ${p.name}.`);
+    }
   }
 
   function startNewPlayer(showToast = true) {
@@ -238,27 +297,35 @@
     if (showToast) toast('New player — slots cleared.');
   }
 
-  function savePrediction() {
+  async function savePrediction() {
     const name = predNameEl.value.trim();
-    if (!name) {
-      toast('Enter a player name first.');
-      predNameEl.focus();
-      return;
-    }
+    if (!name) { toast('Enter a player name first.'); predNameEl.focus(); return; }
     const filled = Object.values(draft).filter(Boolean).length;
     if (filled < TOTAL && !confirm(`Only ${filled}/25 slots filled. Save anyway?`)) return;
 
-    if (editingPlayerId) {
-      const p = state.players.find(x => x.id === editingPlayerId);
-      if (p) { p.name = name; p.predictions = { ...draft }; }
-    } else {
-      const newP = { id: uid(), name, predictions: { ...draft } };
-      state.players.push(newP);
-      editingPlayerId = newP.id;
+    if (!editingPlayerId) editingPlayerId = uid();
+    const next = await apiPost('save-player', {
+      player: { id: editingPlayerId, name, predictions: draft },
+    });
+    if (next) {
+      renderPlayersList();
+      toast('Prediction saved to GitHub.');
     }
-    save();
-    renderPlayersList();
-    toast('Prediction saved.');
+  }
+
+  function randomizeRemaining() {
+    const used = new Set(Object.values(draft).filter(Boolean));
+    const remaining = state.countries.filter(c => !used.has(c));
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+    }
+    const emptyRanks = [];
+    for (let r = 1; r <= TOTAL; r++) if (!draft[r]) emptyRanks.push(r);
+    if (emptyRanks.length === 0) { toast('All 25 slots already filled.'); return; }
+    emptyRanks.forEach((r, i) => { draft[r] = remaining[i] || ''; });
+    renderPredictionSlots();
+    toast(`Randomized ${emptyRanks.length} slot(s).`);
   }
 
   function renderCountryEditor() {
@@ -279,29 +346,24 @@
     });
   }
 
-  function saveCountries() {
+  async function saveCountries() {
     const inputs = countryEditorEl.querySelectorAll('input');
     const next = Array.from(inputs).map(i => i.value.trim()).filter(Boolean);
     if (next.length !== TOTAL) { toast(`Need exactly ${TOTAL} non-empty countries.`); return; }
     if (new Set(next).size !== TOTAL) { toast('Country names must be unique.'); return; }
-    state.countries = next;
-
-    const valid = new Set(next);
-    state.players.forEach(p => {
-      for (let r = 1; r <= TOTAL; r++) if (p.predictions[r] && !valid.has(p.predictions[r])) p.predictions[r] = '';
-    });
-    if (state.actualResults) {
-      for (let r = 1; r <= TOTAL; r++) if (state.actualResults[r] && !valid.has(state.actualResults[r])) state.actualResults[r] = '';
+    const out = await apiPost('save-countries', { countries: next });
+    if (out) {
+      for (let r = 1; r <= TOTAL; r++) {
+        if (draft[r] && !out.countries.includes(draft[r])) draft[r] = '';
+        if (actualDraft[r] && !out.countries.includes(actualDraft[r])) actualDraft[r] = '';
+      }
+      renderPredictionSlots();
+      toast('Countries updated.');
     }
-    for (let r = 1; r <= TOTAL; r++) if (draft[r] && !valid.has(draft[r])) draft[r] = '';
-    for (let r = 1; r <= TOTAL; r++) if (actualDraft[r] && !valid.has(actualDraft[r])) actualDraft[r] = '';
-
-    save();
-    renderPredictionSlots();
-    toast('Countries updated.');
   }
 
   document.getElementById('btn-save-pred').addEventListener('click', savePrediction);
+  document.getElementById('btn-randomize').addEventListener('click', randomizeRemaining);
   document.getElementById('btn-clear-pred').addEventListener('click', () => {
     if (!confirm('Clear all 25 slots in the current draft?')) return;
     draft = blankSlots();
@@ -350,26 +412,51 @@
     renderSlotsInto(actualSlotsEl, actualDraft, () => renderActualSlots());
   }
 
-  function saveActual() {
+  async function saveActual() {
     const filled = Object.values(actualDraft).filter(Boolean).length;
     if (filled < TOTAL && !confirm(`Only ${filled}/25 actual results set. Save anyway?`)) return;
-    state.actualResults = { ...actualDraft };
-    save();
-    renderReveal();
-    renderLeaderboard();
-    toast('Actual results saved.');
+    const next = await apiPost('save-actual', { actualResults: actualDraft });
+    if (next) {
+      renderReveal();
+      renderLeaderboard();
+      toast('Actual results saved to GitHub.');
+    }
   }
 
-  function clearActual() {
-    if (!confirm('Clear actual results and reset all reveals?')) return;
-    state.actualResults = null;
-    state.revealedCount = 0;
-    actualDraft = blankSlots();
-    lastRevealedRank = null;
-    save();
-    renderActualSlots();
-    renderReveal();
-    renderLeaderboard();
+  async function clearActual() {
+    if (!confirm('Clear actual results and reset all reveals (for everyone)?')) return;
+    const next = await apiPost('clear-actual', {});
+    if (next) {
+      actualDraft = blankSlots();
+      lastRevealedRank = null;
+      renderActualSlots();
+      renderReveal();
+      renderLeaderboard();
+    }
+  }
+
+  async function loadDemoResults() {
+    if (state.actualResults && Object.values(state.actualResults).some(Boolean)) {
+      if (!confirm('Overwrite existing actual results with demo data?')) return;
+    }
+    const shuffled = [...state.countries];
+    const italyIdx = shuffled.indexOf('Italy');
+    if (italyIdx > 0) [shuffled[0], shuffled[italyIdx]] = [shuffled[italyIdx], shuffled[0]];
+    for (let i = shuffled.length - 1; i > 1; i--) {
+      const j = 1 + Math.floor(Math.random() * i);
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const fake = blankSlots();
+    for (let r = 1; r <= TOTAL; r++) fake[r] = shuffled[r - 1] || '';
+
+    const next = await apiPost('save-actual', { actualResults: fake });
+    if (next) {
+      actualDraft = { ...next.actualResults };
+      renderActualSlots();
+      renderReveal();
+      renderLeaderboard();
+      toast('🎬 Demo (Sanremo) results loaded.');
+    }
   }
 
   function pointsFor(rank) { return TOTAL + 1 - rank; }
@@ -467,34 +554,38 @@
     });
   }
 
-  function revealNext() {
+  async function revealNext() {
     if (!state.actualResults) { toast('Set actual results first.'); return; }
     if (state.revealedCount >= TOTAL) return;
-    state.revealedCount++;
-    lastRevealedRank = currentRevealRank();
-    save();
-    renderReveal();
-    renderLeaderboard();
-    const c = state.actualResults[lastRevealedRank];
-    toast(`#${lastRevealedRank}: ${c || '(empty)'}`);
+    const newCount = state.revealedCount + 1;
+    const next = await apiPost('set-reveal-count', { revealedCount: newCount });
+    if (next) {
+      lastRevealedRank = TOTAL - newCount + 1;
+      renderReveal();
+      renderLeaderboard();
+      const c = state.actualResults[lastRevealedRank];
+      toast(`#${lastRevealedRank}: ${c || '(empty)'}`);
+    }
   }
 
-  function resetReveals() {
+  async function resetReveals() {
     if (state.revealedCount === 0) return;
-    if (!confirm('Reset reveal progress back to 0?')) return;
-    state.revealedCount = 0;
-    lastRevealedRank = null;
-    save();
-    renderReveal();
-    renderLeaderboard();
+    if (!confirm('Reset reveal progress back to 0 (for everyone)?')) return;
+    const next = await apiPost('set-reveal-count', { revealedCount: 0 });
+    if (next) {
+      lastRevealedRank = null;
+      renderReveal();
+      renderLeaderboard();
+    }
   }
 
   document.getElementById('btn-save-actual').addEventListener('click', saveActual);
   document.getElementById('btn-clear-actual').addEventListener('click', clearActual);
+  document.getElementById('btn-load-demo').addEventListener('click', loadDemoResults);
   document.getElementById('btn-reveal-next').addEventListener('click', revealNext);
   document.getElementById('btn-reveal-reset').addEventListener('click', resetReveals);
 
-  /* ---------- Export / Import / Reset ---------- */
+  /* ---------- Export / Import / Reset / Refresh ---------- */
   document.getElementById('btn-export').addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -514,16 +605,17 @@
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      if (!confirm('Import will replace your current local data. Continue?')) { e.target.value = ''; return; }
-      state = normalize(parsed);
-      actualDraft = state.actualResults ? { ...state.actualResults } : blankSlots();
-      draft = blankSlots();
-      editingPlayerId = null;
-      lastRevealedRank = null;
-      predNameEl.value = '';
-      save();
-      activateTab('predictions');
-      toast('Import complete.');
+      if (!confirm('Import will replace ALL data on GitHub. Continue?')) { e.target.value = ''; return; }
+      const next = await apiPost('import-state', { state: parsed });
+      if (next) {
+        draft = blankSlots();
+        actualDraft = next.actualResults ? { ...next.actualResults } : blankSlots();
+        editingPlayerId = null;
+        lastRevealedRank = null;
+        predNameEl.value = '';
+        activateTab('predictions');
+        toast('Import complete.');
+      }
     } catch {
       toast('Invalid JSON file.');
     } finally {
@@ -531,17 +623,25 @@
     }
   });
 
-  document.getElementById('btn-reset').addEventListener('click', () => {
-    if (!confirm('Wipe ALL local data (players, actual results, country edits)?')) return;
-    localStorage.removeItem(STORAGE_KEY);
-    state = defaultState();
-    draft = blankSlots();
-    actualDraft = blankSlots();
-    editingPlayerId = null;
-    lastRevealedRank = null;
-    predNameEl.value = '';
-    activateTab('predictions');
-    toast('All local data cleared.');
+  document.getElementById('btn-reset').addEventListener('click', async () => {
+    if (!confirm('Wipe ALL shared data on GitHub (players, actual results, country edits)?')) return;
+    const next = await apiPost('reset-all', {});
+    if (next) {
+      draft = blankSlots();
+      actualDraft = blankSlots();
+      editingPlayerId = null;
+      lastRevealedRank = null;
+      predNameEl.value = '';
+      activateTab('predictions');
+      toast('All shared data cleared.');
+    }
+  });
+
+  document.getElementById('btn-refresh').addEventListener('click', async () => {
+    try { await apiGet(); } catch {}
+    if (activeTab === 'predictions') { renderPlayersList(); renderCountryEditor(); renderPredictionSlots(); }
+    if (activeTab === 'overview') renderOverview();
+    if (activeTab === 'finale') { renderReveal(); renderLeaderboard(); }
   });
 
   /* ---------- boot ---------- */

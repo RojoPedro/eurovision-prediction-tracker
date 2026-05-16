@@ -38,7 +38,11 @@
           Guess the ranking. Reveal from 25 to 1. Win bragging rights.
         </p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <div id="sync-pill" class="sync-pill" title="Sync status">
+          <span class="dot"></span><span id="sync-label">Loading…</span>
+        </div>
+        <button id="btn-refresh" class="btn-ghost" title="Reload from GitHub">↻</button>
         <button id="btn-export" class="btn-ghost">Export JSON</button>
         <label class="btn-ghost cursor-pointer">
           Import JSON
@@ -47,6 +51,8 @@
         <button id="btn-reset" class="btn-danger">Reset</button>
       </div>
     </div>
+
+    <div id="sync-banner" class="sync-banner hidden"></div>
 
     <nav class="mt-6 flex flex-wrap gap-1 sm:gap-2 border-b border-white/10">
       <button class="tab-btn" data-tab="predictions">1 · Input Predictions</button>
@@ -76,6 +82,7 @@
 
           <div class="mt-6 flex flex-wrap gap-2">
             <button id="btn-save-pred" class="btn-primary">Save prediction</button>
+            <button id="btn-randomize" class="btn-ghost" title="Fill remaining empty slots with a random shuffle">🎲 Randomize remaining</button>
             <button id="btn-clear-pred" class="btn-ghost">Clear slots</button>
           </div>
         </div>
@@ -132,6 +139,7 @@
         <div id="actual-slots" class="mt-4 grid sm:grid-cols-2 gap-2"></div>
         <div class="mt-4 flex flex-wrap gap-2">
           <button id="btn-save-actual" class="btn-primary">Save actual results</button>
+          <button id="btn-load-demo" class="btn-ghost" title="Italy at #1 (Sanremo style), rest shuffled — committed instantly">🎬 Load demo results</button>
           <button id="btn-clear-actual" class="btn-danger">Clear actual</button>
         </div>
       </details>
