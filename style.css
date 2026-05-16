@@ -119,12 +119,34 @@ select.input option { background: var(--esc-ink); color: white; }
   color: inherit; text-decoration: none;
   display: inline-flex; align-items: center; gap: 0.35rem;
 }
+button.country-link {
+  background: transparent; border: none; padding: 0.1rem 0.3rem;
+  margin: -0.1rem -0.3rem; font: inherit; cursor: pointer;
+  border-radius: 0.35rem;
+  transition: background .15s ease, color .15s ease;
+}
+button.country-link:hover { background: rgba(168, 85, 247, 0.10); }
 .country-link:hover { color: var(--esc-gold); }
 .country-link .play-icon {
-  font-size: 0.65rem; color: rgba(239, 68, 68, 0.55);
+  font-size: 0.65rem; color: rgba(168, 85, 247, 0.55);
   transition: color .15s ease, transform .1s ease;
 }
-.country-link:hover .play-icon { color: #ef4444; transform: scale(1.15); }
+.country-link:hover .play-icon { color: var(--esc-purple); transform: scale(1.15); }
+
+/* Currently playing: applied wherever data-play-country matches */
+.play-btn.playing-now {
+  background: linear-gradient(135deg, rgba(168,85,247,0.45), rgba(236,72,153,0.30));
+  border-color: rgba(168,85,247,0.65);
+  color: #fff; transform: scale(1.05);
+  animation: pulse-purple 1.5s ease infinite;
+}
+
+button.country-link.playing-now {
+  background: linear-gradient(135deg, rgba(168,85,247,0.30), rgba(236,72,153,0.18));
+  color: var(--esc-gold);
+  animation: pulse-purple 1.5s ease infinite;
+}
+button.country-link.playing-now .play-icon { color: var(--esc-gold); }
 
 .audio-status {
   display: inline-flex; align-items: center; gap: 0.5rem;

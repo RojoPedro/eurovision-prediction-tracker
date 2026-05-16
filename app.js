@@ -65,6 +65,8 @@
   };
   const previewCache = new Map();   // country → { url, title } | null (null = looked up, no preview found)
   let currentAudio = null;
+  let currentPlayingCountry = null;
+  let playEpoch = 0;                // guards against overlapping async play calls
   let audioEnabled = true;
   const audioStatusEl = document.getElementById('audio-status');
   const btnAudioToggle = document.getElementById('btn-audio-toggle');
@@ -101,33 +103,59 @@
   }
 
   function stopPreview() {
+    ++playEpoch;
     if (currentAudio) {
       try { currentAudio.pause(); } catch {}
       currentAudio = null;
     }
+    currentPlayingCountry = null;
+    refreshPlayingMarks();
     audioStatusEl.classList.add('hidden');
     audioStatusEl.innerHTML = '';
   }
 
   async function playPreview(country) {
-    stopPreview();
-    if (!audioEnabled || !country) return;
+    const myEpoch = ++playEpoch;
+    if (currentAudio) { try { currentAudio.pause(); } catch {} currentAudio = null; }
+    audioStatusEl.classList.remove('hidden');
+    audioStatusEl.innerHTML = `<span class="title">♪ loading ${escapeHtml(country)}…</span>`;
+    if (!country) { stopPreview(); return; }
     const entry = await fetchPreview(country);
+    if (myEpoch !== playEpoch) return;  // a newer call superseded this one
     if (!entry) {
       audioStatusEl.innerHTML = `<span>♪ no preview for ${escapeHtml(country)}</span>`;
-      audioStatusEl.classList.remove('hidden');
-      setTimeout(() => audioStatusEl.classList.add('hidden'), 2500);
+      setTimeout(() => { if (playEpoch === myEpoch) audioStatusEl.classList.add('hidden'); }, 2500);
       return;
     }
     const audio = new Audio(entry.url);
     audio.volume = 0.85;
     currentAudio = audio;
+    currentPlayingCountry = country;
+    refreshPlayingMarks();
     audio.addEventListener('ended', () => { if (currentAudio === audio) stopPreview(); });
     audio.addEventListener('error', () => { if (currentAudio === audio) stopPreview(); });
     audioStatusEl.innerHTML = `♪ <span class="title">${escapeHtml(entry.title)}</span> <button class="stop" title="Stop">✕</button>`;
-    audioStatusEl.classList.remove('hidden');
     audioStatusEl.querySelector('.stop').addEventListener('click', stopPreview);
     try { await audio.play(); } catch (e) { stopPreview(); }
+  }
+
+  function quickPlay(country) {
+    if (!country) return;
+    if (currentPlayingCountry === country) stopPreview();
+    else playPreview(country);
+  }
+
+  function refreshPlayingMarks() {
+    document.querySelectorAll('.playing-now').forEach(el => {
+      el.classList.remove('playing-now');
+      if (el.classList.contains('play-btn')) el.textContent = '▶';
+    });
+    if (!currentPlayingCountry) return;
+    document.querySelectorAll('[data-play-country]').forEach(el => {
+      if (el.dataset.playCountry !== currentPlayingCountry) return;
+      el.classList.add('playing-now');
+      if (el.classList.contains('play-btn')) el.textContent = '⏸';
+    });
   }
 
   function updateAudioToggleUI() {
@@ -242,8 +270,10 @@
       renderPredictionSlots();
       renderPlayersList();
       renderCountryEditor();
+      prefetchAllPreviews();
     } else if (name === 'overview') {
       hideOverview();
+      prefetchAllPreviews();
     } else if (name === 'finale') {
       if (!Object.values(actualDraft).some(Boolean) && state.actualResults) {
         actualDraft = { ...state.actualResults };
@@ -327,13 +357,14 @@
       const play = document.createElement('button');
       play.type = 'button';
       play.className = 'play-btn';
-      play.title = draftObj[r] ? `Cerca "${draftObj[r]}" su YouTube` : 'Nessun paese selezionato';
+      play.title = draftObj[r] ? `Quick play / stop preview di "${draftObj[r]}"` : 'Nessun paese selezionato';
       play.textContent = '▶';
       play.disabled = !draftObj[r];
+      if (draftObj[r]) play.dataset.playCountry = draftObj[r];
       play.addEventListener('click', e => {
         e.preventDefault();
         e.stopPropagation();
-        openYouTube(draftObj[r]);
+        quickPlay(draftObj[r]);
       });
 
       row.appendChild(pill);
@@ -382,6 +413,7 @@
   function renderPredictionSlots() {
     renderSlotsInto(predSlotsEl, draft, () => renderPredictionSlots());
     updatePredProgress();
+    refreshPlayingMarks();
   }
 
   function updatePredProgress() {
@@ -561,17 +593,34 @@
     const tbody = document.createElement('tbody');
     for (let r = 1; r <= TOTAL; r++) {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="rank-cell">#${r}</td>` + state.players.map(p => {
+      const rankTd = document.createElement('td');
+      rankTd.className = 'rank-cell';
+      rankTd.textContent = `#${r}`;
+      tr.appendChild(rankTd);
+      state.players.forEach(p => {
+        const td = document.createElement('td');
         const v = p.predictions[r];
-        if (!v) return `<td class="text-white/30">—</td>`;
-        const safe = escapeHtml(v);
-        return `<td><a class="country-link" href="${youtubeSearchUrl(v)}" target="_blank" rel="noopener noreferrer" title="Cerca su YouTube">${safe} <span class="play-icon">▶</span></a></td>`;
-      }).join('');
+        if (!v) {
+          td.className = 'text-white/30';
+          td.textContent = '—';
+        } else {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'country-link';
+          btn.dataset.playCountry = v;
+          btn.title = 'Quick play / stop 30s preview';
+          btn.innerHTML = `${escapeHtml(v)} <span class="play-icon">▶</span>`;
+          btn.addEventListener('click', () => quickPlay(v));
+          td.appendChild(btn);
+        }
+        tr.appendChild(td);
+      });
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
     root.innerHTML = '';
     root.appendChild(table);
+    refreshPlayingMarks();
   }
 
   /* ---------- Tab 3: Finale ---------- */
@@ -582,6 +631,7 @@
 
   function renderActualSlots() {
     renderSlotsInto(actualSlotsEl, actualDraft, () => renderActualSlots());
+    refreshPlayingMarks();
   }
 
   async function saveActual() {
