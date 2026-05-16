@@ -16,6 +16,7 @@
   let editingPlayerId = null;
   let actualDraft = blankSlots();
   let lastRevealedRank = null;
+  let revealedCount = 0;   // client-only: page refresh restarts the reveal
   let activeTab = 'predictions';
   let pollTimer = null;
   let inFlight = 0;
@@ -480,10 +481,11 @@
   }
 
   async function clearActual() {
-    if (!confirm('Clear actual results and reset all reveals (for everyone)?')) return;
+    if (!confirm('Clear actual results on the server (and reset your local reveal progress)?')) return;
     const next = await apiPost('clear-actual', {});
     if (next) {
       actualDraft = blankSlots();
+      revealedCount = 0;
       lastRevealedRank = null;
       renderActualSlots();
       renderReveal();
@@ -545,21 +547,21 @@
     return { guess, distance, points: pointsFor(r, distance) };
   }
 
-  function isRevealed(rank) { return rank >= TOTAL - state.revealedCount + 1; }
-  function currentRevealRank() { return TOTAL - state.revealedCount + 1; }
+  function isRevealed(rank) { return rank >= TOTAL - revealedCount + 1; }
+  function currentRevealRank() { return TOTAL - revealedCount + 1; }
 
   function renderReveal() {
     revealListEl.innerHTML = '';
-    revealProgressEl.textContent = `${state.revealedCount} / ${TOTAL} revealed`;
+    revealProgressEl.textContent = `${revealedCount} / ${TOTAL} revealed`;
 
     const haveActual = !!state.actualResults;
     const btn = document.getElementById('btn-reveal-next');
-    btn.disabled = !haveActual || state.revealedCount >= TOTAL;
+    btn.disabled = !haveActual || revealedCount >= TOTAL;
     if (!haveActual) btn.textContent = 'Set actual results first';
-    else if (state.revealedCount >= TOTAL) btn.textContent = 'All revealed';
-    else btn.textContent = `Reveal #${TOTAL - state.revealedCount} ▼`;
+    else if (revealedCount >= TOTAL) btn.textContent = 'All revealed';
+    else btn.textContent = `Reveal #${TOTAL - revealedCount} ▼`;
 
-    if (state.revealedCount === 0) {
+    if (revealedCount === 0) {
       const hint = document.createElement('div');
       hint.className = 'reveal-empty';
       hint.innerHTML = haveActual
@@ -627,7 +629,7 @@
 
   function renderLeaderboard() {
     leaderboardEl.innerHTML = '';
-    const lastRank = state.revealedCount > 0 ? currentRevealRank() : null;
+    const lastRank = revealedCount > 0 ? currentRevealRank() : null;
 
     const scored = state.players.map(p => {
       let score = 0;
@@ -659,29 +661,24 @@
     });
   }
 
-  async function revealNext() {
+  function revealNext() {
     if (!state.actualResults) { toast('Set actual results first.'); return; }
-    if (state.revealedCount >= TOTAL) return;
-    const newCount = state.revealedCount + 1;
-    const next = await apiPost('set-reveal-count', { revealedCount: newCount });
-    if (next) {
-      lastRevealedRank = TOTAL - newCount + 1;
-      renderReveal();
-      renderLeaderboard();
-      const c = state.actualResults[lastRevealedRank];
-      toast(`#${lastRevealedRank}: ${c || '(empty)'}`);
-    }
+    if (revealedCount >= TOTAL) return;
+    revealedCount += 1;
+    lastRevealedRank = TOTAL - revealedCount + 1;
+    renderReveal();
+    renderLeaderboard();
+    const c = state.actualResults[lastRevealedRank];
+    toast(`#${lastRevealedRank}: ${c || '(empty)'}`);
   }
 
-  async function resetReveals() {
-    if (state.revealedCount === 0) return;
-    if (!confirm('Reset reveal progress back to 0 (for everyone)?')) return;
-    const next = await apiPost('set-reveal-count', { revealedCount: 0 });
-    if (next) {
-      lastRevealedRank = null;
-      renderReveal();
-      renderLeaderboard();
-    }
+  function resetReveals() {
+    if (revealedCount === 0) return;
+    if (!confirm('Reset reveal progress back to 0 (only on this device)?')) return;
+    revealedCount = 0;
+    lastRevealedRank = null;
+    renderReveal();
+    renderLeaderboard();
   }
 
   document.getElementById('btn-save-actual').addEventListener('click', saveActual);
