@@ -42,6 +42,15 @@
     ));
   }
 
+  function youtubeSearchUrl(country) {
+    return 'https://www.youtube.com/results?search_query=' +
+      encodeURIComponent(`Eurovision 2026 ${country}`);
+  }
+  function openYouTube(country) {
+    if (!country) return;
+    window.open(youtubeSearchUrl(country), '_blank', 'noopener,noreferrer');
+  }
+
   /* ---------- toast & sync indicator ---------- */
   const toastEl = document.getElementById('toast');
   let toastTimer = null;
@@ -225,9 +234,22 @@
         onChange();
       });
 
+      const play = document.createElement('button');
+      play.type = 'button';
+      play.className = 'play-btn';
+      play.title = draftObj[r] ? `Cerca "${draftObj[r]}" su YouTube` : 'Nessun paese selezionato';
+      play.textContent = '▶';
+      play.disabled = !draftObj[r];
+      play.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        openYouTube(draftObj[r]);
+      });
+
       row.appendChild(pill);
       row.appendChild(handle);
       row.appendChild(sel);
+      row.appendChild(play);
       container.appendChild(row);
     }
   }
@@ -450,8 +472,10 @@
     for (let r = 1; r <= TOTAL; r++) {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td class="rank-cell">#${r}</td>` + state.players.map(p => {
-        const v = p.predictions[r] || '—';
-        return `<td>${escapeHtml(v)}</td>`;
+        const v = p.predictions[r];
+        if (!v) return `<td class="text-white/30">—</td>`;
+        const safe = escapeHtml(v);
+        return `<td><a class="country-link" href="${youtubeSearchUrl(v)}" target="_blank" rel="noopener noreferrer" title="Cerca su YouTube">${safe} <span class="play-icon">▶</span></a></td>`;
       }).join('');
       tbody.appendChild(tr);
     }
@@ -584,9 +608,12 @@
       const right = document.createElement('div');
       const country = state.actualResults ? state.actualResults[r] : null;
       const maxPts = maxPointsFor(r);
+      const countryHtml = country
+        ? `<a class="country-link" href="${youtubeSearchUrl(country)}" target="_blank" rel="noopener noreferrer" title="Cerca su YouTube">${escapeHtml(country)} <span class="play-icon">▶</span></a>`
+        : '<span class="text-white/40">— empty —</span>';
       right.innerHTML = `
         <div class="flex items-center justify-between gap-2">
-          <div class="country-name">${country ? escapeHtml(country) : '<span class="text-white/40">— empty —</span>'}</div>
+          <div class="country-name">${countryHtml}</div>
           <div class="text-xs text-white/60">max ${maxPts} pts</div>
         </div>
       `;

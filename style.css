@@ -94,11 +94,37 @@ select.input option { background: var(--esc-ink); color: white; }
 .tab-btn.active { color: var(--esc-gold); border-bottom-color: var(--esc-gold); }
 
 .slot {
-  display: grid; grid-template-columns: 2.6rem 1.6rem 1fr; align-items: center; gap: 0.4rem;
+  display: grid; grid-template-columns: 2.6rem 1.6rem 1fr 2.2rem; align-items: center; gap: 0.4rem;
   background: rgba(255,255,255,0.03); padding: 0.4rem 0.5rem; border-radius: 0.55rem;
   border: 1px solid rgba(255,255,255,0.06);
   transition: box-shadow .15s ease, opacity .15s ease, transform .15s ease;
 }
+.play-btn {
+  display: flex; align-items: center; justify-content: center;
+  height: 2.1rem; border-radius: 0.45rem;
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.30);
+  font-size: 0.8rem;
+  transition: background .15s ease, color .15s ease, transform .1s ease;
+}
+.play-btn:hover { background: rgba(239, 68, 68, 0.32); color: #fff; transform: scale(1.06); }
+.play-btn:disabled {
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.06);
+  cursor: not-allowed; transform: none;
+}
+.country-link {
+  color: inherit; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+}
+.country-link:hover { color: var(--esc-gold); }
+.country-link .play-icon {
+  font-size: 0.65rem; color: rgba(239, 68, 68, 0.55);
+  transition: color .15s ease, transform .1s ease;
+}
+.country-link:hover .play-icon { color: #ef4444; transform: scale(1.15); }
 .slot .rank-pill {
   display: inline-flex; align-items: center; justify-content: center;
   font-weight: 800; font-size: 0.85rem;
