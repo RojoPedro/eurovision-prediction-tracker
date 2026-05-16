@@ -105,9 +105,17 @@
 
     <!-- TAB 2: OVERVIEW -->
     <section id="tab-overview" class="tab-panel hidden">
-      <div class="card overflow-x-auto">
-        <h2 class="card-title">Side-by-side predictions</h2>
-        <div id="overview-grid" class="mt-4"></div>
+      <div class="card">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <h2 class="card-title">Side-by-side predictions</h2>
+          <button id="btn-overview-toggle" class="btn-primary">👁 Show predictions</button>
+        </div>
+        <div id="overview-cover" class="overview-cover mt-4">
+          <div class="text-3xl mb-2">🙈</div>
+          <p class="font-semibold">Hidden to avoid spoilers</p>
+          <p class="text-xs text-white/60 mt-1">Click <strong>Show predictions</strong> when you're ready to compare everyone's bets.</p>
+        </div>
+        <div id="overview-grid" class="mt-4 hidden overflow-x-auto"></div>
       </div>
     </section>
 

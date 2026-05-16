@@ -122,6 +122,29 @@ select.input option { background: var(--esc-ink); color: white; }
 .slot.drop-target-top    { box-shadow: 0 -3px 0 0 var(--esc-gold), 0 0 18px -4px rgba(251,191,36,0.4); }
 .slot.drop-target-bottom { box-shadow:  0 3px 0 0 var(--esc-gold), 0 0 18px -4px rgba(251,191,36,0.4); }
 
+.slot--empty {
+  border-color: rgba(251, 191, 36, 0.40);
+  border-style: dashed;
+  background: rgba(251, 191, 36, 0.06);
+}
+.slot--empty .rank-pill {
+  background: rgba(251, 191, 36, 0.22);
+  color: #fde68a;
+}
+.slot--empty select.input {
+  color: rgba(253, 230, 138, 0.85);
+  border-color: rgba(251, 191, 36, 0.30);
+}
+
+.overview-cover {
+  border: 1px dashed rgba(255,255,255,0.18);
+  border-radius: 0.7rem;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.02);
+}
+
 .player-chip {
   display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
   background: rgba(255,255,255,0.04); padding: 0.5rem 0.65rem; border-radius: 0.55rem;

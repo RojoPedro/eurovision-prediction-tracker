@@ -144,7 +144,7 @@
       renderPlayersList();
       renderCountryEditor();
     } else if (name === 'overview') {
-      renderOverview();
+      hideOverview();
     } else if (name === 'finale') {
       if (!Object.values(actualDraft).some(Boolean) && state.actualResults) {
         actualDraft = { ...state.actualResults };
@@ -207,7 +207,7 @@
     container.innerHTML = '';
     for (let r = 1; r <= TOTAL; r++) {
       const row = document.createElement('div');
-      row.className = 'slot';
+      row.className = 'slot' + (draftObj[r] ? '' : ' slot--empty');
       row.dataset.rank = String(r);
 
       const pill = document.createElement('div');
@@ -364,7 +364,6 @@
     const name = predNameEl.value.trim();
     if (!name) { toast('Enter a player name first.'); predNameEl.focus(); return; }
     const filled = Object.values(draft).filter(Boolean).length;
-    if (filled < TOTAL && !confirm(`Only ${filled}/25 slots filled. Save anyway?`)) return;
 
     if (!editingPlayerId) editingPlayerId = uid();
     const next = await apiPost('save-player', {
@@ -372,7 +371,7 @@
     });
     if (next) {
       renderPlayersList();
-      toast('Prediction saved to GitHub.');
+      toast(`Saved ${filled}/${TOTAL} picks to GitHub.`);
     }
   }
 
@@ -436,6 +435,26 @@
   document.getElementById('btn-save-countries').addEventListener('click', saveCountries);
 
   /* ---------- Tab 2: Overview ---------- */
+  const overviewToggleBtn = document.getElementById('btn-overview-toggle');
+  const overviewGridEl = document.getElementById('overview-grid');
+  const overviewCoverEl = document.getElementById('overview-cover');
+
+  function showOverview() {
+    overviewCoverEl.classList.add('hidden');
+    overviewGridEl.classList.remove('hidden');
+    overviewToggleBtn.textContent = '🙈 Hide predictions';
+    renderOverview();
+  }
+  function hideOverview() {
+    overviewCoverEl.classList.remove('hidden');
+    overviewGridEl.classList.add('hidden');
+    overviewToggleBtn.textContent = '👁 Show predictions';
+  }
+  overviewToggleBtn.addEventListener('click', () => {
+    if (overviewGridEl.classList.contains('hidden')) showOverview();
+    else hideOverview();
+  });
+
   function renderOverview() {
     const root = document.getElementById('overview-grid');
     if (state.players.length === 0) {
@@ -477,12 +496,11 @@
 
   async function saveActual() {
     const filled = Object.values(actualDraft).filter(Boolean).length;
-    if (filled < TOTAL && !confirm(`Only ${filled}/25 actual results set. Save anyway?`)) return;
     const next = await apiPost('save-actual', { actualResults: actualDraft });
     if (next) {
       renderReveal();
       renderLeaderboard();
-      toast('Actual results saved to GitHub.');
+      toast(`Actual results saved (${filled}/${TOTAL}).`);
     }
   }
 
