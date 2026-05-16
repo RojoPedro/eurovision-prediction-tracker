@@ -119,7 +119,12 @@ function applyAction(state, action, payload) {
 }
 
 function getStateStore() {
-  return getStore({ name: STORE_NAME, consistency: 'strong' });
+  // Eventual consistency: ~sub-second freshness for other viewers,
+  // and the writer always gets the canonical post-write state in the
+  // POST response so they see their own change instantly.
+  // Strong consistency needs an uncachedEdgeURL that the v1 Functions
+  // runtime doesn't inject.
+  return getStore(STORE_NAME);
 }
 
 async function readWithEtag() {
